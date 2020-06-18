@@ -15,6 +15,8 @@ class Application:
         self.top_label.grid(pady=(0, 10))
         self.linkLabel = Label(self.root, text="Past the YouTube Link Below", font=("Aerial", 30))
         self.linkLabel.grid(pady=(0, 20))
+
+
         self.youtubeEnteryVar = StringVar()
         self.youtubeEntery = Entry(self.root, width=70, textvariable=self.youtubeEnteryVar, font=("Aerial", 25), fg="green")
         self.youtubeEntery.grid(pady=(0, 15), ipady=2)
@@ -48,10 +50,10 @@ class Application:
 
     def checkYoutubeLink(self):
         self.matchYoutubeLink = re.match("^https://www.youtube.com/.*", self.youtubeEnteryVar.get())
-
+ 
         if (not self.matchYoutubeLink):
             self.youtubeEntryErr.config(text="Invalid YouTube Link", fg="red")
-        elif (not self.openDir()):
+        elif (not self.openDir):
             self.fileLocationLabel.config(text="Please Choose the folder", fg="red")
         elif (self.matchYoutubeLink and self.openDir):
             self.downloadWindow()
@@ -59,11 +61,7 @@ class Application:
     def downloadWindow(self):
         self.newWindow = Toplevel(self.root)
         self.root.withdraw()
-        # self.app = SecondPage(self.newWindow, self.youtubeEnteryVar.get(), self.FolderName.get(), self.choisesVar.get())
-
-
-
-
+        self.app = SecondPage(self.newWindow, self.youtubeEnteryVar.get(), self.FolderName, self.choisesVar.get())
 
     def openDir(self):
         self.FolderName = filedialog.askdirectory()
@@ -72,6 +70,68 @@ class Application:
             return True
         else:
             self.fileLocationLabel.config(text="Please chose a folder", fg="red", font=("Aerial", 15))
+
+class SecondPage:
+    def __init__(self, downloadwindow, youtubeEntery, FolderName, Choises):
+        self.downloadwindow = downloadwindow
+        self.downloadwindow.attributes("-zoomed", True)
+        self.downloadwindow.grid_rowconfigure(0, weight=0)
+        self.downloadwindow.grid_columnconfigure(0, weight=1)
+
+        self.youtubeChoseLabel = Label(self.downloadwindow, text="test label", font=("Aerial", 30))
+        self.youtubeChoseLabel.grid()
+
+        self.youtubeEntery = youtubeEntery
+        self.FolderName = FolderName
+        self.Choises = Choises
+
+        self.yt = YouTube(self.youtubeEntery)
+
+        if (self.Choises=="1"):
+            self.video_type = self.yt.streams.filter(only_audio=True).first()
+            self.Maxfilesize = self.video_type.filesize
+        if (self.Choises=="2"):
+            self.video_type = self.yt.streams.first()
+            self.Maxfilesize = self.video_type.filesize
+
+        self.loadingLabel = Label(self.downloadwindow, text="Downloading in Progress", font=("Aerial", 40))
+        self.loadingLabel.grid(pady=(100, 0))
+
+        self.loadingPersent = Label(self.downloadwindow, text="0", fg="green", font=("Aerial", 40))
+        self.loadingPersent.grid(pady=(50, 0))
+
+        self.progressBar = ttk.Progressbar(self.downloadwindow, length=500, orient="horizontal", mode="indeterminate")
+        self.progressBar.grid(pady=(50, 0))
+        self.progressBar.start()
+
+        threading.Thread(target=self.yt.register_on_progress_callback(self.show_progressbar)).start()
+        threading.Thread(target=self.DownloadFile).start()
+
+    def DownloadFile(self):
+        if (self.Choises == "1"):
+            self.yt.streams.filter(only_audio=True).first().download(self.FolderName)
+        elif (self.Choises == "2"):
+            self.yt.streams.first().download(self.FolderName)
+
+    def show_progressbar(self, streams = None, chunk = None, filehandle = None, bytes_remaining = None):
+        self.percentCount = float("%0.2f" % (100-(100*(bytes_remaining/self.Maxfilesize))))
+
+        if (self.percentCount < 100):
+            self.loadingPersent.config(text=str(self.percentCount))
+        else:
+            self.progressBar.stop()
+            self.loadingLabel.grid_forget()
+            self.progressBar.grid_forget()
+            self.downloadFinishedLabel = Label (self.downloadwindow, text="Download completed", font=("Aerial", 40))
+            self.downloadFinishedLabel.grid(pady=(150, 0))
+
+            self.downloadLocation = Label(self.downloadwindow, text= self.yt.title, font=("Aerial", 40))
+            self.downloadLocation.grid(pady=(50, 0))
+
+            MB = float("%0.2f" % (self.Maxfilesize/1000000))
+            self.downloadedFilesize = Label(self.downloadwindow, text=str(MB)+"MB", font=("Aerial", 40))
+            self.downloadedFilesize.grid(pady=(50, 0))
+
 
 
 if __name__ =='__main__':
